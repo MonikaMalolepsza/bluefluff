@@ -4,11 +4,14 @@
 	"description": "Furby Connect BLE Controller",
 	"main": "fluffd.js",
 	"dependencies": {
-		"@abandonware/noble": "1.9.2-23",
+		"@abandonware/noble": "1.9.2-26",
 		"winston": "3.11.0"
 	},
 	"devDependencies": {
-		"eslint": "5.9.0"
+		"eslint": "^5.9.0"
+	},
+	"optionalDependencies": {
+		"xpc-connection": "^0.1.5"
 	},
 	"author": "Jeija",
 	"license": "MIT"

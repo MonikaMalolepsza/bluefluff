@@ -3,8 +3,8 @@ import os
 
 # Modify these paths to select which input DLC file you want to
 # modify and where the output file should end up.
-TARGET="/path/to/tu003410.dlc"
-OUTFILE="/path/to/custom.dlc"
+TARGET="/Users/A1B35FA/IdeaProjects/bluefluff/dlc/tu003410.dlc"
+OUTFILE="/Users/A1B35FA/IdeaProjects/bluefluff/dlc/custom.dlc"
 
 # This is where you define which content you want to insert into
 # the DLC files (A1800 audio files, custom LCD graphics, ...)
@@ -20,11 +20,8 @@ OUTFILE="/path/to/custom.dlc"
 # * 22357 * 40 + 27 injects into action 75.0.1.4 and 75.0.1.7
 # * 24468 * 40 + 15 injects into action 75.0.4.0
 INJECTIONS=[{
-	"path" : "/path/to/sound1.a18",
-	"offset" : 8270 * 40 +  7 # some offset from the list, or try your own
-}, {
-	"path" : "path/to/sound2.a18",
-	"offset" : 8400 * 40 + 13 # another offset from the list above
+	"path" : "/Users/A1B35FA/IdeaProjects/bluefluff/dlc/furby_ready_wav.a18",
+	"offset" : 8270 * 40 + 7 # injects into action 75.0.2.6
 }]
 
 # Get file sizes and open all of the payloads
@@ -41,7 +38,7 @@ with open(OUTFILE, "wb") as outfile:
 		for count in range(target_size):
 			override = False
 			for payload in INJECTIONS:
-				if count > payload["offset"] and count < payload["offset"] + payload["size"]:
+				if count >= payload["offset"] and count < payload["offset"] + payload["size"]:
 					outfile.write(payload["fd"].read(1))
 					target.read(1)
 					override = True

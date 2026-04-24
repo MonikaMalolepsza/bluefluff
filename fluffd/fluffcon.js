@@ -37,7 +37,7 @@ function exitHandler(furby) {
 	});
 }
 
-// Get GATT characterstic matching serviceUUID and characteristicUUID from furby peripheral.
+// Get GATT characterstic matching serviceUUID and characteristicUUIDs from furby peripheral.
 // callback is a function(characteristic), where characteristic is a noBLE characteristic.
 function getFurbyCharacteristics(furby, serviceUUID, characteristicUUIDs, callback) {
 	furby.discoverServices([serviceUUID], function (error, services) {
@@ -145,7 +145,8 @@ class Fluff {
 				winston.warn("Error in writeToSlot: " + error);
 				if (callback) callback("writeToSlot: " + error);
 			} else {
-				winston.verbose("writeToSlot: " + data.toString("hex"));
+				// Packet-level slot writes are very chatty during DLC flashing.
+				winston.silly("writeToSlot: " + data.toString("hex"));
 				if (callback) callback(false);
 			}
 		});
@@ -201,8 +202,16 @@ class Fluff {
 		this.gpCallbacks.push(callback);
 	}
 
+	removeGeneralPlusCallback(callback) {
+		this.gpCallbacks = this.gpCallbacks.filter((c) => c !== callback);
+	}
+
 	addNordicCallback(callback) {
 		this.nCallbacks.push(callback);
+	}
+
+	removeNordicCallback(callback) {
+		this.nCallbacks = this.nCallbacks.filter((c) => c !== callback);
 	}
 
 	// General-Purpose Key-Value storage for actions
@@ -274,7 +283,7 @@ module.exports.introspect = function (furby) {
 							if (error)
 								winston.error("Error while disconnecting: " + error);
 							else
-								winston.info("Disconnected, exiting")
+								winston.info("Disconnected, exiting");
 
 							process.exit();
 						});

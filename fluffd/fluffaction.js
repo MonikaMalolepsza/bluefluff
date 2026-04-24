@@ -22,7 +22,7 @@ commands["debug"] = {
 	},
 	readable: "Debug Screen",
 	description: "Cycle through LCD eye debug menus"
-}
+};
 
 commands["lcd"] = {
 	run: function (fluff, params, callback) {
@@ -141,40 +141,81 @@ commands["flashdlc"] = {
 	run : function (fluff, params, callback) {
 		const dlcsize = fs.statSync(params.dlcfile)["size"];
 
+		let finished = false;
+		function finish(error) {
+			if (finished)
+				return;
+			finished = true;
+			if (callback)
+				callback(error || false);
+		}
+
 		// Not sure what buf_slot does?? Is it really the DLC slot??
 		let buf_cmd = Buffer.from([0x50, 0x00]);
 		let buf_size = Buffer.from([dlcsize >> 16 & 0xff, dlcsize >> 8 & 0xff, dlcsize & 0xff]);
 		let buf_slot = Buffer.from([0x02]);
 		let buf_filename = Buffer.from(params.filename);
-		let buf_end = Buffer([0x00, 0x00]);
+		let buf_end = Buffer.from([0x00, 0x00]);
 		let cmd_prepare = Buffer.concat([buf_cmd, buf_size, buf_slot, buf_filename, buf_end]);
 
-		fluff.generalPlusWrite(cmd_prepare, callback);
+		let started = false;
+		const readyTimeout = setTimeout(function () {
+			fluff.removeGeneralPlusCallback(onGeneralPlus);
+			finish("flashdlc: timed out waiting for GP 2402 ready response");
+		}, 15000);
 
-		// Wait until GeneralPlus is ready to receive (sends 24:02 response)
-		fluff.addGeneralPlusCallback(function (data) {
-			if (!(data[0] == 0x24 && data[1] == 0x02))
+		function onGeneralPlus(data) {
+			if (started)
 				return;
+			if (!(data[0] === 0x24 && data[1] === 0x02))
+				return;
+
+			started = true;
+			clearTimeout(readyTimeout);
+			fluff.removeGeneralPlusCallback(onGeneralPlus);
 			winston.info("FlashDLC: Got Ready to Receive");
 
 			fs.readFile(params.dlcfile, function (error, dlc) {
-				if (error)
-					throw error;
+				if (error) {
+					finish("flashdlc: could not read DLC file: " + error);
+					return;
+				}
 
-				// Write DLC piece by piece
 				let offset = 0;
+				let nextProgress = 10;
+				(function writeNext() {
+					if (offset >= dlc.length) {
+						winston.info("FlashDLC: Finished writing " + dlc.length + " bytes");
+						finish(false);
+						return;
+					}
 
-				let flashint = setInterval(function () {
-					const piece = dlc.slice(offset, offset + 20);
-					fluff.writeToSlot(piece);
+					const piece = dlc.slice(offset, Math.min(offset + 20, dlc.length));
+					fluff.writeToSlot(piece, function (writeError) {
+						if (writeError) {
+							finish("flashdlc: writeToSlot failed at offset " + offset + ": " + writeError);
+							return;
+						}
 
-					// End of buffer: Stop writing
-					if (piece.length < 20)
-						clearInterval(flashint);
-
-					offset += 20;
-				}, 5);
+						offset += piece.length;
+						const progress = Math.floor((offset / dlc.length) * 100);
+						if (progress >= nextProgress) {
+							winston.info("FlashDLC: " + progress + "%");
+							nextProgress += 10;
+						}
+						setTimeout(writeNext, 5);
+					});
+				})();
 			});
+		}
+
+		fluff.addGeneralPlusCallback(onGeneralPlus);
+		fluff.generalPlusWrite(cmd_prepare, function (error) {
+			if (error) {
+				clearTimeout(readyTimeout);
+				fluff.removeGeneralPlusCallback(onGeneralPlus);
+				finish(error);
+			}
 		});
 	},
 	readable: "Flash DLC file",
@@ -202,7 +243,7 @@ commands["dlc_activate"] = {
 	},
 	readable: "Activate DLC",
 	description: "Activate loaded DLC - use after 'Load DLC'"
-}
+};
 
 commands["dlc_deactivate"] = {
 	run: function (fluff, params, callback) {
